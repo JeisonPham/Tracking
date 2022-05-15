@@ -232,7 +232,7 @@ class RadarDataset(torchdata.Dataset):
         pts[:, [0, 1]] = pts[:, [1, 0]]
         map_image = np.zeros((self.nx, self.ny))
         for pt in pts:
-            cv2.circle(map_image, pt, 1, (255, 0, 0), thickness=1)
+            cv2.circle(map_image, (pt[0], pt[1]), 1, (255, 0, 0), thickness=1)
 
         map_image /= 255.0
 

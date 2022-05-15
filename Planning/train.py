@@ -25,8 +25,8 @@ def train(trajectory_file, fileLocation, carFile, cloudFile, device):
 
     experiment = Experiment(**CC, disabled=False)
     hyper_params = {
-        "lr": 0.001,
-        "weight_decay": 0.05,
+        "lr": 0.1,
+        "weight_decay": 5e-4,
         "epoch": 1e5
     }
     experiment.log_parameters(hyper_params)
@@ -54,6 +54,7 @@ def train(trajectory_file, fileLocation, carFile, cloudFile, device):
     loss_fn = SimpleLoss(trajectory_file)
 
     opt = torch.optim.Adam(model.parameters(), lr=hyper_params["lr"], weight_decay=hyper_params["weight_decay"])
+    scheduler = torch.optim.lr_scheduler.ExponentialLR(opt, gamma=0.1)
 
     counter = 0
     with experiment.train():
@@ -89,6 +90,7 @@ def train(trajectory_file, fileLocation, carFile, cloudFile, device):
                     logging.info(f"{epoch} {batchi} {counter} {loss.detach.item()}")
                     experiment.log_metric("train/loss", loss.item(), step = counter)
                     experiment.log_metric("train/epoch", epoch, step = counter)
+            scheduler.step()
 
 
 
