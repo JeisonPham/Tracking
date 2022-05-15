@@ -7,13 +7,19 @@ from model import PlanningModel
 from PlanningDataset import PlanningDataset
 import numpy as np
 from datetime import datetime
+import logging
+import os
 
 trajectory_file = "../Planning/Trajectory_set.pkl"
 fileLocation = "../Data"
 carFile = "downtown_SD_10thru_50count_with_cad_id.csv"
 cloudFile = "downtown_SD_10_7.ply"
 
+if not os.path.exists("log"):
+    os.mkdir("log")
 
+logging.basicConfig(filename=f"log/{datetime.now().strftime('%Y-%m-%d-%H-%M-%S')}.log", filemode='w', level=logging.INFO, format='%(asctime)s - %(message)s')
+logging.info("Starting Training")
 
 def train(trajectory_file, fileLocation, carFile, cloudFile, device):
 
@@ -53,6 +59,7 @@ def train(trajectory_file, fileLocation, carFile, cloudFile, device):
     with experiment.train():
         for epoch in range(int(hyper_params['epoch'])):
             print(f"Starting Epoch {epoch}")
+            logging.info(f"Starting Epoch: {epoch}")
             for batchi, (x, y, gt) in enumerate(train_dataloader):
                 counter += 1
                 opt.zero_grad()
@@ -73,11 +80,13 @@ def train(trajectory_file, fileLocation, carFile, cloudFile, device):
                     model.eval()
                     mname = f"Models/Planner_model{counter}_{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}.pt"
                     print("saving", mname)
+                    logging.info(f"Saving {mname}")
                     torch.save(model.state_dict(), mname)
                     model.train()
 
                 if counter % 10 == 0:
                     print(epoch, batchi, counter, loss.detach().item())
+                    logging.info(f"{epoch} {batchi} {counter} {loss.detach.item()}")
                     experiment.log_metric("train/loss", loss.item(), step = counter)
                     experiment.log_metric("train/epoch", epoch, step = counter)
 
