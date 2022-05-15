@@ -1,0 +1,86 @@
+from comet_ml import Experiment
+from comet_config import comet_config as CC
+import torch
+import torch.utils.data as torchdata
+from tools import SimpleLoss, eval_model
+from model import PlanningModel
+from PlanningDataset import PlanningDataset
+import numpy as np
+from datetime import datetime
+
+trajectory_file = "../Planning/Trajectory_set.pkl"
+fileLocation = "../Data"
+carFile = "downtown_SD_10thru_50count_with_cad_id.csv"
+cloudFile = "downtown_SD_10_7.ply"
+
+
+def train(trajectory_file, fileLocation, carFile, cloudFile, device):
+
+    experiment = Experiment(**CC, disabled=False)
+    hyper_params = {
+        "lr": 0.001,
+        "weight_decay": 0.05,
+        "epoch": 1e5
+    }
+    experiment.log_parameters(hyper_params)
+
+
+    PD = PlanningDataset(trajectory_file=trajectory_file,
+                         fileLocation=fileLocation,
+                         carFile=carFile,
+                         cloudFile=cloudFile, ego_only=False, flip_aug=False, is_train=False,
+                         t_spacing=0.25, only_y=False)
+
+    device = torch.device(device)
+
+    N = len(PD)
+    train_len = int(N * 0.8)
+    test_len = N - train_len
+
+    train_set, test_set = torchdata.random_split(PD, [train_len, test_len])
+    train_dataloader = torchdata.DataLoader(train_set, batch_size=32, shuffle=True, num_workers=10)
+    test_dataloader = torchdata.DataLoader(test_set, batch_size=32, shuffle=False, num_workers=10)
+
+    model = PlanningModel(5, 16, 256, 256).to(device)
+    model.train()
+
+    loss_fn = SimpleLoss(trajectory_file)
+
+    opt = torch.optim.Adam(model.parameters(), lr=hyper_params["lr"], weight_decay=hyper_params["weight_decay"])
+
+    counter = 0
+    with experiment.train():
+        for epoch in range(int(hyper_params['epoch'])):
+            print(f"Starting Epoch {epoch}")
+            for batchi, (x, y, gt) in enumerate(train_dataloader):
+                counter += 1
+                opt.zero_grad()
+                pred = model(x.to(device))
+
+                loss = loss_fn(pred, gt[1].to(device), gt[0].to(device))
+                loss.backward()
+                opt.step()
+
+
+                if counter % 200 == 0:
+                    acc, ade, fde = eval_model(test_dataloader, model, loss_fn, device)
+                    experiment.log_curve(f"ADE_{counter}", x=np.arange(0, 4, 0.25), y=ade, step=counter)
+                    experiment.log_metric("Eval Loss", acc, step=counter)
+                    experiment.log_metric("FDE", ade[-1], step=counter)
+
+                if counter % 200 == 0:
+                    model.eval()
+                    mname = f"Models/Planner_model{counter}_{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}.pt"
+                    print("saving", mname)
+                    torch.save(model.state_dict(), mname)
+                    model.train()
+
+                if counter % 10 == 0:
+                    print(epoch, batchi, counter, loss.detach().item())
+                    experiment.log_metric("train/loss", loss.item(), step = counter)
+                    experiment.log_metric("train/epoch", epoch, step = counter)
+
+
+
+
+train(trajectory_file, fileLocation, carFile, cloudFile, 0)
