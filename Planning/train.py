@@ -54,13 +54,14 @@ def train(trajectory_file, fileLocation, carFile, cloudFile, device):
     loss_fn = SimpleLoss(trajectory_file)
 
     opt = torch.optim.Adam(model.parameters(), lr=hyper_params["lr"], weight_decay=hyper_params["weight_decay"])
-    scheduler = torch.optim.lr_scheduler.ExponentialLR(opt, gamma=0.1)
+    scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(opt, mode="min")
 
     counter = 0
     with experiment.train():
         for epoch in range(int(hyper_params['epoch'])):
             print(f"Starting Epoch {epoch}")
             logging.info(f"Starting Epoch: {epoch}")
+            update_lr = False
             for batchi, (x, y, gt) in enumerate(train_dataloader):
                 counter += 1
                 opt.zero_grad()
@@ -76,6 +77,8 @@ def train(trajectory_file, fileLocation, carFile, cloudFile, device):
                     experiment.log_curve(f"ADE_{counter}", x=np.arange(0, 4, 0.25), y=ade, step=counter)
                     experiment.log_metric("Eval Loss", acc, step=counter)
                     experiment.log_metric("FDE", ade[-1], step=counter)
+                    update_lr = True
+
 
                 if counter % 200 == 0:
                     model.eval()
@@ -90,8 +93,8 @@ def train(trajectory_file, fileLocation, carFile, cloudFile, device):
                     logging.info(f"{epoch} {batchi} {counter} {loss.detach.item()}")
                     experiment.log_metric("train/loss", loss.item(), step = counter)
                     experiment.log_metric("train/epoch", epoch, step = counter)
-            scheduler.step()
-
+            if update_lr:
+                scheduler.step(acc)
 
 
 
