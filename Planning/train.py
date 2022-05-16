@@ -95,6 +95,7 @@ def train(trajectory_file, fileLocation, carFile, cloudFile, device):
                     experiment.log_metric("train/epoch", epoch, step = counter)
             if update_lr:
                 scheduler.step(acc)
+                experiment.log_metric("train/lr", scheduler.get_lr(), step=counter)
 
 
 

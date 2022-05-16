@@ -1,8 +1,6 @@
 import scipy.spatial.distance
 import torch
 import torch.utils.data as torchdata
-from torch.utils.data.dataset import T_co
-from torchvision import transforms, utils
 import os
 import pandas as pd
 import open3d as o3d
