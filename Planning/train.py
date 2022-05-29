@@ -85,7 +85,7 @@ def train(trajectory_file, fileLocation, carFile, cloudFile, model_location, use
 
                 if counter % 10 == 0:
                     print(epoch, batchi, counter, loss.detach().item())
-                    logging.info(f"{epoch} {batchi} {counter} {loss.detach.item()}")
+                    logging.info(f"{epoch} {batchi} {counter} {loss.detach().item()}")
                     experiment.log_metric("train/loss", loss.item(), step=counter)
                     experiment.log_metric("train/epoch", epoch, step=counter)
             if update_lr:
