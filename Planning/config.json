@@ -1,0 +1,13 @@
+{
+  "trajectory_file": "../Planning/Trajectory_set.pkl",
+  "data_location": "../Data",
+  "car_file": "downtown_SD_10thru_50count_with_cad_id.csv",
+  "cloud_file": "downtown_SD_10_7.ply",
+  "use_resnet": 1,
+  "hyper_params": {
+        "lr": 0.1,
+        "weight_decay": 5e-4,
+        "epoch": 1e5
+  },
+  "model_location": "../Planning/Models"
+}

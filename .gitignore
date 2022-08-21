@@ -1,0 +1,9 @@
+.idea/
+.ipynb_checkpoints
+__pycache__/
+Data/
+*.png
+*.pt
+*.log
+*.mp4
+*.ply
