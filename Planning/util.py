@@ -4,7 +4,6 @@ import cv2
 import matplotlib as mpl
 import json
 
-
 # mpl.use('Agg')
 import torch
 
@@ -140,7 +139,6 @@ def render_observation(x):
 
 
 def render_observations_and_traj(x, y, gts):
-
     if torch.is_tensor(x):
         x = x.detach().cpu().numpy()
     # road
@@ -167,23 +165,21 @@ def render_observations_and_traj(x, y, gts):
     # showimg = make_rgba(y.sum(axis=0).numpy().T, (0.5, 0.5, 0.0))
     # plt.imshow(showimg, origin='lower')
 
+    if gts is not None:
+        for i, gt in enumerate(gts):
+            temp = np.zeros(x[4].T.shape)
+            for ii, (pt1, pt2) in enumerate(zip(gt[:-1], gt[1:])):
+                if np.sum(pt1) == 0 or np.sum(pt2) == 0:
+                    continue
+                if ii == len(gt[:-1]) - 1:
+                    temp = cv2.arrowedLine(temp, pt1[::-1], pt2[::-1], (1.0, 0, 0), thickness=2, tipLength=1)
+                else:
+                    temp = cv2.line(temp, pt1[::-1], pt2[::-1], (1.0, 0, 0), thickness=2)
+                # temp = cv2.circle(temp, (pt1[1], pt1[0]), 3, (1.0, 0, 0), thickness=1)
+                # temp = cv2.circle(temp, (pt2[1], pt2[0]), 3, (1.0, 0, 0), thickness=1)
 
-    for i, gt in enumerate(gts):
-        temp = np.zeros(x[4].T.shape)
-        for ii, (pt1, pt2) in enumerate(zip(gt[:-1], gt[1:])):
-            if np.sum(pt1) == 0 or np.sum(pt2) == 0:
-                continue
-            if ii == len(gt[:-1]) - 1:
-                temp = cv2.arrowedLine(temp, pt1[::-1], pt2[::-1], (1.0, 0, 0), thickness=2, tipLength=1)
-            else:
-                temp = cv2.line(temp, pt1[::-1], pt2[::-1], (1.0, 0, 0), thickness=2)
-            # temp = cv2.circle(temp, (pt1[1], pt1[0]), 3, (1.0, 0, 0), thickness=1)
-            # temp = cv2.circle(temp, (pt2[1], pt2[0]), 3, (1.0, 0, 0), thickness=1)
-
-
-
-        showimg = make_rgba(temp.T, (0.0, 0.5, 0.5))
-        plt.imshow(showimg, origin="lower", alpha= 1 - np.tanh(i * 1 / len(gts)))
+            showimg = make_rgba(temp.T, (0.0, 0.5, 0.5))
+            plt.imshow(showimg, origin="lower", alpha=1 - np.tanh(i * 1 / len(gts)))
 
     if y is not None:
 

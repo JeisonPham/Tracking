@@ -13,7 +13,7 @@ class SavePlots(object):
 
             result = func(*args, **kwargs)
             if fig.get_axes():
-                plt.savefig(f"{self.location}/{self.index:03d}.png")
+                plt.savefig(f"{self.location}/{self.index:05d}.png")
                 plt.show()
                 self.index += 1
             else:

@@ -63,11 +63,11 @@ class SimpleLoss(nn.Module):
 
         traj_distance = []
         for traj in self.traj:
-            traj_distance.append(min(np.linalg.norm(traj[:, 1:] - target_position, axis=1)))
-        traj_distance = np.argsort(traj_distance)
+            traj_distance.append(max(np.linalg.norm(traj[:, 1:] - target_position, axis=1)))
+        traj_distance = np.argsort(traj_distance)[:1000]
 
         # indices = np.intersect1d(np.where(traj_angle), traj_distance)
-        traj_angle = self.traj
+        traj_angle = self.traj[traj_distance]
 
         cv = cost_volume[:, traj_angle[:, :, 0], traj_angle[:, :, 1], traj_angle[:, :, 2]]
         min_index = torch.argsort(torch.sum(cv, axis=2), axis=1)

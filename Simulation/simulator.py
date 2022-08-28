@@ -202,9 +202,10 @@ class Simulator:
         #         car = CarObject(veh0, stationary=False, world_starting_pos=[431.25, 726.85], simulator=self)
         #         self._carList.append(car)
         #         self._carSprite.add(car)
-        # car = CarObject(None, stationary=True, world_starting_pos=[510.01333333, 612.72666667], simulator=self, angle=-90)
+        # car = CarObject(None, stationary=True, world_starting_pos=[586.66666667, 739.33333333], simulator=self, angle=-90)
         # self._carList.append(car)
         # self._carSprite.add(car)
+        # ffmpeg -r 1 -i %05d.png -c:v libx264 -vf fps=16 -pix_fmt yuv420p out.mp4
 
         self._MapCompleted = False
 
@@ -212,7 +213,7 @@ class Simulator:
 
         self._start_analysis = False
 
-        self.pred = PredictTrajectory(top_k=1000)
+        self.pred = PredictTrajectory(top_k=100)
         self.i = 0
 
     @property
@@ -361,7 +362,7 @@ class Simulator:
                     node_pixel = real_to_pixel(node_position, self._player).flatten()
                     node_angle = np.arctan2(node_pixel[1] - 128, node_pixel[0] - 56.5)
 
-                    traj = self.pred(map, node_pixel, node_angle)
+                    traj = self.pred(map, node_pixel[::-1], node_angle)
                     traj_index = []
                     for t in traj:
                         traj_index.append(min(np.linalg.norm(t - node_pixel[::-1], axis=1)))

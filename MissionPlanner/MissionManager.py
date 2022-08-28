@@ -6,27 +6,36 @@ import matplotlib.pyplot as plt
 class MissionManager(object):
     def __init__(self, starting_position, radius, node_file):
         self.nodes = MissionNode.create_nodes_from_file(node_file, radius)
-        self.current_node = self.nodes[[key for key, value in sorted(self.nodes.items(), key=lambda x: np.linalg.norm(starting_position[:-1].flatten() -
-                                                                                       x[1].starting_position))][0]]
+        self.current_node = self.nodes[[key for key, value in sorted(self.nodes.items(), key=lambda x: np.linalg.norm(
+            starting_position[:-1].flatten() -
+            x[1].starting_position))][0]]
         self._goal = None
         self._visited = []
+        self._radius = radius
+        self._reached_goal = False
+
+    def set_current_node(self, pos):
+        pos = pos.flatten()
+        pos = np.array([pos[0], pos[2]])
+        self.current_node = self.nodes[[key for key, value in sorted(self.nodes.items(), key=lambda x: np.linalg.norm(
+            pos - x[1].starting_position))][0]]
+        self._reached_goal = False
 
     def set_goal(self, goal):
-        self._goal = self.nodes[[key for key, value in sorted(self.nodes.items(), key=lambda x: np.linalg.norm(goal -
-                                                                                   x[1].starting_position))][0]]
+        self._goal = self.nodes[[key for key, value in sorted(self.nodes.items(), key=lambda x: np.linalg.norm(
+            goal - x[1].starting_position))][0]]
 
         self._path = MissionNode.A_star(self.current_node, self._goal)
+        self._reached_goal = False
 
     def update_node(self, vehicle):
-        if np.linalg.norm(vehicle - self.current_node.starting_position) < self.current_node.radius:
+        if not self._reached_goal and np.linalg.norm(
+                vehicle - self.current_node.starting_position) < self.current_node.radius:
             self._visited.append(self.current_node)
             self.current_node = self._path.pop(0)
 
             if self.current_node == self._goal:
                 print("Reached Goal")
-
-            return True
-        return False
 
     def plot(self, transform_func, player):
         if len(self._visited) > 0:
