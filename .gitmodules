@@ -1,0 +1,3 @@
+[submodule "Simulator2"]
+    path = Simulator2
+    url = ../Simulator2.git
