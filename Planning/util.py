@@ -182,9 +182,8 @@ def render_observations_and_traj(x, y, gts):
             plt.imshow(showimg, origin="lower", alpha=1 - np.tanh(i * 1 / len(gts)))
 
     if y is not None:
-
-        temp = np.zeros(x[4].numpy().T.shape)
-        pts = np.array(np.where(y.numpy() == 1))[1:, :].T
+        temp
+        pts = y.detach().numpy().cpu()
         for pt in pts:
             temp = cv2.circle(temp, (pt[1], pt[0]), 2, (1.0, 0, 0), thickness=-1)
         showimg = make_rgba(temp.T, (0.5, 0.5, 0.0))
@@ -192,3 +191,31 @@ def render_observations_and_traj(x, y, gts):
     plt.grid(b=None)
     plt.xticks([])
     plt.yticks([])
+
+
+def render_layers(x, y):
+    def style_ax():
+        plt.grid(b=None)
+        plt.xticks([])
+        plt.yticks([])
+
+    fig = plt.figure(figsize=(6 * (x.shape[0] + 2), 6))
+    gs = mpl.gridspec.GridSpec(1, x.shape[0] + 2)
+
+    for i in range(x.shape[0]):
+        plt.subplot(gs[0, i])
+        plt.imshow(x[i].T, origin='lower', vmin=0, vmax=1)
+        style_ax()
+
+    plt.subplot(gs[0, i + 1])
+    traj_img = np.zeros((256, 256))
+    for point in y:
+        point = point.detach().numpy().astype(int)
+        traj_img[point[0], point[1]] = 1.0
+    plt.imshow(traj_img, origin='lower', vmin=0, vmax=1)
+    style_ax()
+
+    plt.subplot(gs[0, i + 2])
+    render_observation(x)
+
+    plt.tight_layout()

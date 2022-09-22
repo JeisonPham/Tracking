@@ -8,6 +8,7 @@ from util import *
 import random
 
 
+
 class PlanningDataset(RadarDataset):
     def __init__(self, trajectory_file="", *args, **kwargs):
         super(PlanningDataset, self).__init__(*args, **kwargs)
@@ -55,7 +56,4 @@ if __name__ == "__main__":
                          carFile = "downtown_SD_10thru_50count_with_cad_id.csv",
                          cloudFile = "downtown_SD_10_7.ply", ego_only=False, flip_aug=False, is_train=False, t_spacing=0.25, only_y =False)
 
-    for i, (x, y, GT) in enumerate(iter(PD)):
-        render_observations_and_traj(x, y, GT[1].astype(int))
-        plt.savefig(f"../Planning/Visuals/{i:05d}.png")
-        plt.clf()
+

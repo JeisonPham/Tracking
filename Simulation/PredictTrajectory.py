@@ -3,8 +3,12 @@ from Planning.model import PlanningModel
 import torch
 import sys
 import numpy as np
+import matplotlib.pyplot as plt
 
 sys.path.append("../Planning")
+
+
+
 
 
 class PredictTrajectory:

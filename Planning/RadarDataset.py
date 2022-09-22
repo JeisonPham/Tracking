@@ -4,7 +4,6 @@ import torch.utils.data as torchdata
 import os
 import pandas as pd
 import open3d as o3d
-from tqdm import tqdm
 from scipy.interpolate import interp1d
 from util import *
 import pickle

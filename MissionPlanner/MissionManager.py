@@ -1,53 +1,102 @@
-from .MissionNode import MissionNode
+from MissionPlanner.NetNodes import Net
 import numpy as np
 import matplotlib.pyplot as plt
+import json
+from shapely.geometry import Polygon, Point
 
 
 class MissionManager(object):
-    def __init__(self, starting_position, radius, node_file):
-        self.nodes = MissionNode.create_nodes_from_file(node_file, radius)
-        self.current_node = self.nodes[[key for key, value in sorted(self.nodes.items(), key=lambda x: np.linalg.norm(
-            starting_position[:-1].flatten() -
-            x[1].starting_position))][0]]
-        self._goal = None
-        self._visited = []
-        self._radius = radius
-        self._reached_goal = False
+    def __init__(self, net_file, polygon_file, navigation_method="bfs"):
+        self.net = Net(net_file)
+        self.net.link_objects()
 
-    def set_current_node(self, pos):
-        pos = pos.flatten()
-        pos = np.array([pos[0], pos[2]])
-        self.current_node = self.nodes[[key for key, value in sorted(self.nodes.items(), key=lambda x: np.linalg.norm(
-            pos - x[1].starting_position))][0]]
-        self._reached_goal = False
+        with open(polygon_file, 'r') as file:
+            polygons = json.load(file)
+            for key, value in polygons['junction'].items():
+                polygon = Polygon(value)
+                setattr(self.net.nodes[key], "polygon", polygon)
 
-    def set_goal(self, goal):
-        self._goal = self.nodes[[key for key, value in sorted(self.nodes.items(), key=lambda x: np.linalg.norm(
-            goal - x[1].starting_position))][0]]
+            for key, value in polygons['lane'].items():
+                lane_polygon = Polygon(value)
+                setattr(self.net.lanes[key], "polygon", lane_polygon)
 
-        self._path = MissionNode.A_star(self.current_node, self._goal)
-        self._reached_goal = False
+                temp = []
+                for marking in polygons['lane_markings'][key]:
+                    lane_marking = Polygon(marking)
+                    temp.append(lane_marking)
+                setattr(self.net.lanes[key], "marking_polygon", temp)
 
-    def update_node(self, vehicle):
-        if not self._reached_goal and np.linalg.norm(
-                vehicle - self.current_node.starting_position) < self.current_node.radius:
-            self._visited.append(self.current_node)
-            self.current_node = self._path.pop(0)
+        self._navigation_method = navigation_method
+        self.current_lane = None
 
-            if self.current_node == self._goal:
-                print("Reached Goal")
+    def set_node(self, position, node_type="start"):
+        point = Point(position)
+        found = False
+        for key, lane in self.net.lanes.items():
+            if hasattr(lane, "polygon") and lane.polygon.contains(point):
+                found = True
+                break
 
-    def plot(self, transform_func, player):
-        if len(self._visited) > 0:
-            visited = np.array([[*node.starting_position, 0, 0] for node in self._visited]).reshape(-1, 4)
-            visited = transform_func(visited, player)
-            plt.scatter(visited[:, 1], visited[:, 0], c='g', marker='x')
+        if not found:
+            for key, junction in self.net.nodes.items():
+                if hasattr(junction, "polygon") and junction.polygon.contains(point):
+                    lane = junction.incLanes[0]
 
-        if len(self._path) > 0:
-            path = np.array([[*node.starting_position, 0, 0] for node in self._path]).reshape(-1, 4)
-            path = transform_func(path, player)
-            plt.scatter(path[:, 1], path[:, 0], c='black', marker='o')
+        if node_type == "start":
+            self.current_lane = lane
+        else:
+            setattr(self, "goal_lane", lane)
+
+    def generate_path(self):
+        if self._navigation_method == "bfs":
+            setattr(self, "path", self._bfs())
+
+    def target(self, position):
+        point = Point(position)
+        if self.current_lane.polygon.contains(point):
+            return self.current_lane.end
+        else:
+            return self.current_lane.start
+
+    def target_list(self):
+        targets = []
+        for lane in self.path:
+            targets.append(lane.polygon.centroid.coords[0])
+
+        return targets
+
+    def update(self, position):
+        point = Point(position)
+
+        if not self.current_lane.contains(point):
+            self.current_lane = self.path.pop(0)
+
+    def _bfs(self):
+        queue = [[self.current_lane]]
+        visited = set()
+        while len(queue) > 0:
+            size = len(queue)
+            for _ in range(size):
+                lanes = queue.pop(0)
+                if lanes[-1] in visited:
+                    continue
+                elif lanes[-1] == self.goal_lane:
+                    return lanes
+
+                visited.add(lanes[-1])
+                current_lane = lanes[-1]
+                for connection in current_lane.outgoing_connection:
+                    temp = lanes.copy()
+                    temp.append(connection.to_lane)
+                    queue.append(temp)
+
+        raise Exception
 
 
 if __name__ == "__main__":
-    manager = MissionManager(np.array([858, 514]), 10, "nodes.json")
+    manager = MissionManager(r"C:\Users\Jason\Sumo\2022-09-10-18-45-26\osm.net.xml",
+                             r"F:\Radar Reseach Project\Tracking\SumoNetVis\polygons.json")
+    manager.set_node([308.93, 580.42])
+    manager.set_node([937.51, 923.72], "goal")
+    manager.generate_path()
+    manager.target()

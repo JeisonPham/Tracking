@@ -1,28 +1,40 @@
 import numpy as np
+from scipy.optimize import curve_fit
+
+
+def x_clothoid(L, R, l):
+    return l - np.power(l, 5) / (40 * np.power(R * L, 2)) + np.power(l, 9) / (3456 * np.power(R * L, 4))
+
+
+def y_clothoid(L, R, l):
+    return np.power(l, 3) / (6 * R * L) - np.power(l, 7) / (336 * np.power(R * L, 3))
 
 
 class Trajectory(object):
-    def __init__(self, start, tol=5):
-        self.cluster = [start]
+    def __init__(self, start, tol=10):
+
+
+        self.cluster = np.asarray([start])
         self.tol = tol
         self.i = len(start)
 
     @property
     def mean(self):
-        cluster = []
-        for c in self.cluster:
-            cluster.append(c[:self.i, :])
-        temp = np.zeros((16, 2))
-        temp[:self.i, :] = np.mean(cluster, axis=0)
+        # cluster = []
+        # for c in self.cluster:
+        #     cluster.append(c)
+        temp = np.mean(self.cluster, axis=0)
+        temp[(temp[:, 0] > 255)] = 255
+        temp[(temp[:, 0] < 0)] = 0
+        temp[(temp[:, 1] > 255)] = 255
+        temp[(temp[:, 1] < 0)] = 0
         return temp.astype(int)
 
     def distance(self, other_traj):
-        for traj in self.cluster:
-            i = min(len(traj), len(other_traj))
-            dist = np.linalg.norm(traj[:i, :] - other_traj[:i, :], axis=1)
-            if max(dist) > self.tol:
-                return np.nan
-        return max(dist)
+        distance = np.linalg.norm(self.cluster - other_traj, axis=2)
+        if np.max(distance) > self.tol:
+            return np.nan
+        return np.max(distance)
 
     def angle(self, other_traj):
         min_angle = 360
@@ -42,6 +54,5 @@ class Trajectory(object):
     def update(self, other_traj):
         result = not np.isnan(self.distance(other_traj))
         if result:
-            self.i = min(self.i, len(other_traj))
-            self.cluster.append(other_traj)
+            self.cluster = np.append(self.cluster, other_traj.reshape(1, 16, 2), axis=0)
         return result
