@@ -78,9 +78,9 @@ def train(params, device):
                     experiment.log_metric("FDE", ade[-1], step=counter)
                     update_lr = True
 
-                if counter % 2000 == 0:
+                if counter % 2 == 0:
                     model.eval()
-                    mname = f"{model_location}/{counter}_{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}.pt"
+                    mname = os.path.join(model_location, f"{counter} {datetime.now().strftime('%Y_%m_%d %H-%M-%S')}.pt")
                     print("saving", mname)
                     logging.info(f"Saving {mname}")
                     torch.save(model.state_dict(), mname)

@@ -5,11 +5,11 @@ workspace = "jeisontriton"
 
 [train]
 dataset = "PolygonDataset"
-model_location = "../Planning/Models"
+model_location = "..\\Planning\\Models"
 trajectory_file = "../Planning/Trajectory_set.pkl"
 use_resnet = true
 disable=true
-batch_size = 16
+batch_size = 64
 num_workers = 10
 device=1
 
