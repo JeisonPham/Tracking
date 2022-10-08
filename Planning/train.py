@@ -143,6 +143,18 @@ def train(params, device):
 
 
 # train(trajectory_file, fileLocation, carFile, cloudFile, 0)
+def run_train():
+    import toml
+    with open("Planning/config.toml", "r") as file:
+        params = toml.load(file)
+    print(params)
+
+    if not os.path.exists(params['train']['model_location']):
+        os.mkdir(params['train']['model_location'])
+        print("Model Folder Created")
+
+    train(params, device=torch.device('cuda' if params['train']['device'] != 0 and
+                                                torch.cuda.is_available() else 'cpu'))
 
 if __name__ == "__main__":
     import toml

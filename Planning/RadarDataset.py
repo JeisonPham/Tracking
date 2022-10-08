@@ -2,8 +2,11 @@ from Planning import PolygonDataset
 import numpy as np
 import pandas as pd
 import os
+import sys
 from Planning.util import *
 from collab_radar_eval.utils.collab_dataset_utils.dataset_utils import collab_dataset
+
+sys.path.append("Planning")
 
 gt_folder_name = "downtown_SD_10thru_50count_labels"
 bev_folder_name = "downtown_SD_10thru_50count_80m_doppler_tuned"
