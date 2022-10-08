@@ -72,10 +72,3 @@ if __name__ == "__main__":
                 add_edge(edges, ic, ia)
         return edges
 
-    points = get_map("F:\Radar Reseach Project\Tracking\Data\downtown_SD_10_7.ply")
-    alpha_shape = alphashape.alphashape(points)
-
-    fig, ax = plt.subplots()
-    ax.scatter(points[:, 0], points[:, 1])
-    ax.add_patch(PolygonPatch(alpha_shape, alpha=0.2))
-    plt.show()

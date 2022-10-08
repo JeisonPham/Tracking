@@ -4,8 +4,12 @@ import matplotlib.pyplot as plt
 import pickle
 import sys
 import matplotlib
+from scipy.interpolate import interp1d
+from shapely.geometry import Polygon
+import json
 
 RADIUS = 10
+NUM_LANE_NODES = 10
 
 
 class Node:
@@ -27,6 +31,12 @@ class Node:
 
     def __repr__(self):
         return self.id
+
+    def draw(self, position):
+        position = np.array(position)
+        if hasattr(self, "polygon"):
+            if any(np.linalg.norm(np.array([*self.polygon.exterior.xy]).T - position, axis=1) <= 60):
+                plt.plot(*self.polygon.exterior.xy)
 
     def get_neighbor_nodes(self):
         to = []
@@ -63,6 +73,58 @@ class Edge:
             return self.lanes[index]
         raise IndexError
 
+    def draw(self, position):
+        position = np.array(position)
+        if hasattr(self, "polygon"):
+            if any(np.linalg.norm(np.array([*self.polygon.exterior.xy]).T - position, axis=1) <= 60):
+                plt.plot(*self.polygon.exterior.xy)
+
+    def link_lane_nodes(self):
+        lanes = list(self.lanes.values())
+
+        for i in range(len(lanes)):
+
+            if i == len(lanes) - 1:
+                lane1 = lanes[i]
+                lane2 = lanes[i - 1]
+            else:
+                lane1 = lanes[i]
+                lane2 = lanes[i + 1]
+
+            # Handle Horizontal Connections
+            for node_index in range(len(lane1.lane_nodes)):
+                lane1.lane_nodes[node_index].link_two_way(lane2.lane_nodes[node_index])
+                if node_index < len(lane1.lane_nodes) - 1:
+                    lane1.lane_nodes[node_index].link_one_way(lane2.lane_nodes[node_index + 1])
+                    lane1.lane_nodes[node_index].link_one_way(lane1.lane_nodes[node_index + 1])
+
+class LaneNodes:
+    EXISTS = []
+
+    def __init__(self, position):
+        self.position = position
+        self.neighbors = set()
+
+        LaneNodes.EXISTS.append(self)
+
+    def link_two_way(self, other_laneNode):
+        if self != other_laneNode:
+            self.neighbors.add(other_laneNode)
+            other_laneNode.neighbors.add(self)
+
+    def link_one_way(self, other_laneNode):
+        if self != other_laneNode:
+            self.neighbors.add(other_laneNode)
+
+    def draw(self):
+        style = "Simple, tail_width=0.5, head_width=1, head_length=1"
+
+        line = plt.scatter(self.position[0], self.position[1], s=RADIUS)
+        kw = dict(arrowstyle=style, color="k")
+        for node in self.neighbors:
+            combined = np.array([self.position, node.position]).reshape(-1, 2)
+            plt.plot(combined[:, 0], combined[:, 1])
+
 
 class Lane:
     def __init__(self, *args, **kwargs):
@@ -73,11 +135,26 @@ class Lane:
         self.index = int(self.index)
         self.incoming_connection = []
         self.outgoing_connection = []
-        self.end = [float(x) for x in self.shape.split(" ")[-1].split(",")]
-        self.start = [float(x) for x in self.shape.split(" ")[0].split(",")]
+
+        self.shape = [x.split(",") for x in self.shape.split(" ")]
+        self.shape = np.array([[float(x), float(y)] for x, y in self.shape])
+        self.end = self.shape[-1]
+        self.start = self.shape[0]
+
+        interp = interp1d(x=np.linspace(0, NUM_LANE_NODES, len(self.shape)), y=self.shape, axis=0)
+        self.lane_nodes = [LaneNodes(position) for position in interp(np.arange(0, NUM_LANE_NODES))]
 
     def __repr__(self):
         return self.id
+
+    def draw(self, position, hide_nodes=False):
+        position = np.array(position)
+        if hasattr(self, "polygon"):
+            if any(np.linalg.norm(np.array([*self.polygon.exterior.xy]).T - position, axis=1) <= 60):
+                plt.plot(*self.polygon.exterior.xy)
+                if not hide_nodes:
+                    for lane_node in self.lane_nodes:
+                        lane_node.draw()
 
 
 class Connection:
@@ -86,6 +163,18 @@ class Connection:
             setattr(self, key, value)
         self.fromLane = int(self.fromLane)
         self.toLane = int(self.toLane)
+
+    def link_lane_nodes(self):
+        if hasattr(self, 'via_lane'):
+            self.from_lane.lane_nodes[-1].link_one_way(self.via_lane.lane_nodes[0])
+            self.via_lane.lane_nodes[-1].link_one_way(self.to_lane.lane_nodes[0])
+
+    def draw(self, position, hide_nodes=False):
+        if hasattr(self, 'via_lane'):
+            if not hide_nodes and (np.linalg.norm(self.via_lane.lane_nodes[0].position - position) <= 60 \
+                                   or np.linalg.norm(self.via_lane.lane_nodes[-1].position - position) <= 60):
+                for lane_node in self.via_lane.lane_nodes:
+                    lane_node.draw()
 
 
 class Net:
@@ -151,6 +240,28 @@ class Net:
                 intLane = self.lanes.get(i, None)
                 if intLane is not None:
                     node.intLanes.append(intLane)
+
+            for edge in self.edges.values():
+                edge.link_lane_nodes()
+
+            for connection in self.connections:
+                connection.link_lane_nodes()
+
+    def export_lane_nodes(self, path):
+        node_id = dict()
+        nodes = dict()
+        for i, lane_node in enumerate(LaneNodes.EXISTS):
+            node_id[lane_node] = i
+
+        for lane_node, ID in node_id.items():
+            neighbors = [node_id[neighbor_node] for neighbor_node in lane_node.neighbors]
+            nodes[ID] = dict(
+                position=lane_node.position.tolist(),
+                neighbors=neighbors
+            )
+
+        with open(path, 'w') as file:
+            json.dump(nodes, file)
 
 
 if __name__ == "__main__":

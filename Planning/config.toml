@@ -4,23 +4,25 @@ api_key = "KPeUsRqhiz6nAFBQYCx9o8vb1"
 workspace = "jeisontriton"
 
 [train]
-dataset = "PolygonDataset"
-model_location = "..\\Planning\\Models"
+dataset = "RadarDataset"
+model_location = "../Planning/Models"
 trajectory_file = "../Planning/Trajectory_set.pkl"
 use_resnet = true
 disable=true
-batch_size = 64
+batch_size = 8
 num_workers = 10
 device=1
 
 [train.dataset_params]
 car_file = "F:\\2022-09-12-16-57-35\\test.csv"
 polygon_file = "F:\\Radar Reseach Project\\Tracking\\SumoNetVis\\polygons.json"
+radar_dataset = ""
 trajectory_file = 'F:\\Radar Reseach Project\\Tracking\\Planning\\Trajectory_set.pkl'
-ego_only = false
+ego_only = true
 only_y = false
 t_spacing = 0.25
 split_file = "../Planning/distribution.json"
+only_speed = true
 
 
 [train.hyper_params]

@@ -4,10 +4,12 @@ import torch.utils.data as torchdata
 from Planning.tools import SimpleLoss, eval_model
 from model import PlanningModel
 from PolygonDataset import PolygonDataset
+from RadarDataset import RadarDataset
 import numpy as np
 from datetime import datetime
 import logging
 import os
+from Planning.util import *
 import json
 
 # trajectory_file = "../Planning/Trajectory_set.pkl"
@@ -23,14 +25,13 @@ logging.basicConfig(filename=f"log/{datetime.now().strftime('%Y-%m-%d-%H-%M-%S')
 logging.info("Starting Training")
 
 
-def train(params, device):
+def viz_validation(params, model_location, device):
     use_resnet = params['train'].get('use_resnet', False)
-    experiment = Experiment(**params['comet'], disabled=params['train']['disable'])
-    experiment.log_parameters(params['train']['hyper_params'])
 
     if params['train']['dataset'] == 'PolygonDataset':
         PD = PolygonDataset(**params['train']['dataset_params'])
-
+    if params['train']['dataset'] == 'RadarDataset':
+        PD = RadarDataset(**params['train']['dataset_params'])
 
     device = torch.device(device)
 
@@ -39,8 +40,53 @@ def train(params, device):
     test_len = N - train_len
 
     train_set, test_set = torchdata.random_split(PD, [train_len, test_len])
-    train_dataloader = torchdata.DataLoader(train_set, batch_size=params['train']['batch_size'], shuffle=True, num_workers=params['train']['num_workers'])
-    test_dataloader = torchdata.DataLoader(test_set, batch_size=params['train']['batch_size'], shuffle=False, num_workers=params['train']['num_workers'])
+    train_dataloader = torchdata.DataLoader(train_set, batch_size=params['train']['batch_size'], shuffle=True,
+                                            num_workers=params['train']['num_workers'])
+    test_dataloader = torchdata.DataLoader(test_set, batch_size=params['train']['batch_size'], shuffle=False,
+                                           num_workers=params['train']['num_workers'])
+
+    model = PlanningModel(use_resnet, 5, 16, 256, 256).to(device)
+    model.load_state_dict(torch.load(model_location))
+    model.eval()
+
+    trajectory_file = params['train']['trajectory_file']
+
+    loss_fn = SimpleLoss(trajectory_file)
+
+    with torch.no_grad():
+        for batchii, (x, y, gt) in enumerate(test_dataloader):
+            x = x.to(device)
+            y = y.to(device)
+
+            cost_volume = model(x)
+            trajectory = loss_fn.top_trajectory(cost_volume, gt[0], gt[1], 5)
+
+            for traj, xs, ys in zip(trajectory, x, y):
+                render_observations_and_traj(xs, ys, traj)
+                plt.show()
+
+
+def train(params, device):
+    use_resnet = params['train'].get('use_resnet', False)
+    experiment = Experiment(**params['comet'], disabled=params['train']['disable'])
+    experiment.log_parameters(params['train']['hyper_params'])
+
+    if params['train']['dataset'] == 'PolygonDataset':
+        PD = PolygonDataset(**params['train']['dataset_params'])
+    if params['train']['dataset'] == 'RadarDataset':
+        PD = RadarDataset(**params['train']['dataset_params'])
+
+    device = torch.device(device)
+
+    N = len(PD)
+    train_len = int(N * 0.8)
+    test_len = N - train_len
+
+    train_set, test_set = torchdata.random_split(PD, [train_len, test_len])
+    train_dataloader = torchdata.DataLoader(train_set, batch_size=params['train']['batch_size'], shuffle=True,
+                                            num_workers=params['train']['num_workers'])
+    test_dataloader = torchdata.DataLoader(test_set, batch_size=params['train']['batch_size'], shuffle=False,
+                                           num_workers=params['train']['num_workers'])
 
     model = PlanningModel(use_resnet, 5, 16, 256, 256).to(device)
     model.train()
@@ -100,13 +146,18 @@ def train(params, device):
 
 if __name__ == "__main__":
     import toml
+
     with open("config.toml", "r") as file:
         params = toml.load(file)
     print(params)
 
-    if not os.path.exists(params['train']['model_location']):
-        os.mkdir(params['train']['model_location'])
-        print("Model Folder Created")
+    device = torch.device('cuda' if params['train']['device'] != 0 and torch.cuda.is_available() else 'cpu')
 
-    train(params, device=torch.device('cuda' if params['train']['device'] != 0 and
-                                                torch.cuda.is_available() else 'cpu'))
+    # if not os.path.exists(params['train']['model_location']):
+    #     os.mkdir(params['train']['model_location'])
+    #     print("Model Folder Created")
+    #
+    # train(params, device=torch.device('cuda' if params['train']['device'] != 0 and
+    #                                             torch.cuda.is_available() else 'cpu'))
+
+    viz_validation(params, model_location="../Models/Best Polygon Model.pt", device=device)

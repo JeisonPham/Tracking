@@ -1,11 +1,11 @@
 from RadarDataset import RadarDataset
+import matplotlib as mpl
 import numpy as np
 import matplotlib.pyplot as plt
 from Trajectory import Trajectory
 from scipy.spatial.distance import directed_hausdorff
 import pickle
 from tqdm import tqdm
-from sklearn.cluster import DBSCAN
 
 
 def hausdorff(u, v):
@@ -155,6 +155,7 @@ def viz_trajectory_sets(traj_file):
 
                 plt.plot(traj.mean[:, 0], traj.mean[:, 1])
             plt.show()
+
 
 
 

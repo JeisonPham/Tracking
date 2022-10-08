@@ -178,15 +178,15 @@ def render_observations_and_traj(x, y, gts):
                 # temp = cv2.circle(temp, (pt1[1], pt1[0]), 3, (1.0, 0, 0), thickness=1)
                 # temp = cv2.circle(temp, (pt2[1], pt2[0]), 3, (1.0, 0, 0), thickness=1)
 
-            showimg = make_rgba(temp.T, (0.0, 0.5, 0.5))
+            showimg = make_rgba(temp, (0.0, 0.5, 0.5))
             plt.imshow(showimg, origin="lower", alpha=1 - np.tanh(i * 1 / len(gts)))
 
     if y is not None:
-        temp
-        pts = y.detach().numpy().cpu()
+        temp = np.zeros(x[4].T.shape)
+        pts = y.detach().cpu().numpy().astype(int)
         for pt in pts:
             temp = cv2.circle(temp, (pt[1], pt[0]), 2, (1.0, 0, 0), thickness=-1)
-        showimg = make_rgba(temp.T, (0.5, 0.5, 0.0))
+        showimg = make_rgba(temp, (0.5, 0.5, 0.0))
         plt.imshow(showimg, origin='lower', alpha=1)
     plt.grid(b=None)
     plt.xticks([])

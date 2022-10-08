@@ -1,7 +1,7 @@
 import torch.utils.data as torchdata
 import pandas as pd
 from tqdm import tqdm
-from util import *
+from Planning.util import *
 import json
 import numpy as np
 from scipy.interpolate import interp1d
@@ -14,19 +14,21 @@ import pickle
 
 class PolygonDataset(torchdata.Dataset):
     def __init__(self, car_file, polygon_file, trajectory_file=None, ego_only=False, only_y=False, t_spacing=0.25,
-                 split_file=None, image_output=False):
+                 split_file=None, raw_output=False, image_output=False, only_speed=False):
         self.carFile = car_file
         self.ego_only = ego_only
         self.t_spacing = t_spacing
         self.only_y = only_y
         self.local_ts = np.arange(0.25, 4.1, 0.25)
+        self.only_speed = only_speed
+        self.raw_output = raw_output
 
         df = pd.read_csv(car_file)
         if df["vehicle_angle"].max() > 2 * np.pi or df["vehicle_angle"].min() < 0:
             df["vehicle_angle"] = df["vehicle_angle"] * np.pi / 180
 
         self.df = df
-        self.vehicle_names = list(df["vehicle_id"].unique())
+        self.vehicle_names = list(df["vehicle_id"].unique())[:40]
 
         self.dx, self.bx, (self.nx, self.ny) = get_grid([-17.0, -38.5,
                                                          60.0, 38.5],
@@ -68,7 +70,7 @@ class PolygonDataset(torchdata.Dataset):
     def compile_data(self):
         scene2data = {}
         print("Compiling Data")
-        for name in tqdm(self.vehicle_names[:40]):
+        for name in tqdm(self.vehicle_names):
             veh = self.df[self.df["vehicle_id"] == name]
 
             for index, row in veh.iterrows():
@@ -318,6 +320,9 @@ class PolygonDataset(torchdata.Dataset):
         if self.only_y:
             center = self.data[scene][name]['interp'](t0)
             tgt = self.data[scene][name]['interp'](t0 + self.local_ts)
+            if self.raw_output:
+                return tgt[:, :2]
+
             ltgt = objects2frame(tgt[np.newaxis, :, :], center)[0]
             y, direction = self.tgt(ltgt)
             # if np.random.rand() > 0.5:
@@ -330,6 +335,9 @@ class PolygonDataset(torchdata.Dataset):
             speed = "less_than_5"
         else:
             speed = "greater_than_5"
+
+        if self.only_speed:
+            return torch.Tensor(x), torch.Tensor(y), (speed, direction)
 
         index, trajectory = self.get_trajectory_index(y, speed, direction)
 
@@ -355,7 +363,7 @@ if __name__ == "__main__":
 
     data = PolygonDataset(r"F:\2022-09-12-16-57-35\test.csv",
                           r"F:\Radar Reseach Project\Tracking\SumoNetVis\polygons.json", only_y=True,
-                          image_output=False)
+                          image_output=False, raw_output=True)
 
     # create_mask(data, "mask.json")
     # viz_masks("mask.json")

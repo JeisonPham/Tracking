@@ -53,17 +53,17 @@ class SimpleLoss(nn.Module):
 
         return np.mean(ades, axis=0)
 
-    def top_trajectory(self, cost_volume, top_k):
-        cv = cost_volume[:, self.traj[:, :, 0], self.traj[:, :, 1], self.traj[:, :, 2]]
-        scores = torch.sum(cv, axis=2)
-        min_index = torch.argsort(scores, axis=1)
-        traj = []
-        score = []
-        for batchii in range(cv.shape[0]):
-            index = min_index[batchii, :top_k]
-            traj.append(self.traj[index.cpu(), :, 1:])
-            score.append(scores[batchii, index].detach().cpu().numpy())
-        return traj, np.asarray(score)
+    def top_trajectory(self, cost_volume, speeds, directions, top_k):
+        top_trajs = []
+        for cv, dir, sp in zip(cost_volume, directions, speeds):
+            traj_set = self.trajectory_set[sp][dir.item()]
+            traj = traj_set['traj']
+            traj_cost = cv[traj[:, :, 0], traj[:, :, 1], traj[:, :, 2]]
+            min_index = torch.argsort(torch.sum(traj_cost, axis=1), axis=0)
+
+            top_traj = traj[min_index.detach().cpu().numpy(), :, 1:][:top_k]
+            top_trajs.append(top_traj)
+        return top_trajs
 
     def top_trajectory_within_angle_to_target(self, cost_volume, top_k, target_position, target_angle):
         if target_angle > 0:
