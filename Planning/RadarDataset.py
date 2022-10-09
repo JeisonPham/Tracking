@@ -5,6 +5,18 @@ import os
 import sys
 from Planning.util import *
 from collab_radar_eval.utils.collab_dataset_utils.dataset_utils import collab_dataset
+import matplotlib.pyplot as plt
+
+
+def render_layers(x, traj):
+    fig = plt.figure(figsize=(16 * 4, 1 * 4))
+    gs = mpl.gridspec.GridSpec(1, 16)
+
+    for maski, mask in enumerate(x):
+        plt.subplot(gs[0, maski])
+        plt.imshow(mask, origin='lower')
+    plt.show()
+
 
 sys.path.append("Planning")
 
@@ -29,16 +41,16 @@ class RadarDataset(PolygonDataset):
 
         self.df = df
 
-        with open(os.path.join(radar_dataset, "training_txt_files", bev_folder_name, "valid_files_train.txt"), 'r') as file:
+        with open(os.path.join(radar_dataset, "training_txt_files", bev_folder_name, "valid_files_train.txt"),
+                  'r') as file:
             training = file.readlines()
 
-        with open(os.path.join(radar_dataset, "training_txt_files", bev_folder_name, "valid_files_test.txt"), 'r') as file:
+        with open(os.path.join(radar_dataset, "training_txt_files", bev_folder_name, "valid_files_test.txt"),
+                  'r') as file:
             testing = file.readlines()
 
         self.radar_data = training + testing
         self.vehicle_names = set([x.split("_")[2] for x in self.radar_data])
-
-
 
         # self.dx, self.bx, (self.nx, self.ny) = get_grid([-17.0, -38.5,
         #                                                  60.0, 38.5],
@@ -65,5 +77,5 @@ class RadarDataset(PolygonDataset):
         for i, pos in enumerate(tgt):
             tgt[i] = np.dot(np.linalg.norm(extrinsic_ego2world), tgt)
 
-        print(img, tgt)
-
+        render_layers(img, tgt)
+        print(tgt)

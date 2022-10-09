@@ -20,7 +20,7 @@ radar_dataset = ""
 trajectory_file = 'F:\\Radar Reseach Project\\Tracking\\Planning\\Trajectory_set.pkl'
 ego_only = true
 only_y = false
-t_spacing = 0.25
+t_spacing = 1
 split_file = "../Planning/distribution.json"
 only_speed = true
 
