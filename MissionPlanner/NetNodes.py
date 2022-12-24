@@ -93,10 +93,12 @@ class Edge:
 
             # Handle Horizontal Connections
             for node_index in range(len(lane1.lane_nodes)):
-                lane1.lane_nodes[node_index].link_two_way(lane2.lane_nodes[node_index])
+                # lane1.lane_nodes[node_index].link_two_way(lane2.lane_nodes[node_index])
                 if node_index < len(lane1.lane_nodes) - 1:
-                    lane1.lane_nodes[node_index].link_one_way(lane2.lane_nodes[node_index + 1])
+                    if not hasattr(self, 'function') or self.function != 'internal':
+                        lane1.lane_nodes[node_index].link_one_way(lane2.lane_nodes[node_index + 1])
                     lane1.lane_nodes[node_index].link_one_way(lane1.lane_nodes[node_index + 1])
+
 
 class LaneNodes:
     EXISTS = []
@@ -104,17 +106,45 @@ class LaneNodes:
     def __init__(self, position):
         self.position = position
         self.neighbors = set()
+        self.back_neighbors = set()
+        self.id = len(LaneNodes.EXISTS)
 
         LaneNodes.EXISTS.append(self)
+
+    @property
+    def linear_midpoint(self):
+        midpoints = [(x.position + self.position) / 2 for x in self.back_neighbors]
+        if len(midpoints) == 1:
+            return midpoints[0]
+
+        dist = np.linalg.norm(np.array(midpoints) - self.position, axis=1)
+        index = np.argsort(dist)[0]
+        return midpoints[index]
+
+    def projected_midpoint(self, position):
+        back_neighbors = list(self.back_neighbors)
+        dist = np.linalg.norm([x.position - self.position for x in back_neighbors], axis=1)
+        index = np.argsort(dist)[0]
+
+        u = self.position - back_neighbors[index].position
+        v = position - back_neighbors[index].position
+
+        proj = back_neighbors[index].position + np.dot(v, u) / np.linalg.norm(u) ** 2 * u
+        return proj
+
 
     def link_two_way(self, other_laneNode):
         if self != other_laneNode:
             self.neighbors.add(other_laneNode)
             other_laneNode.neighbors.add(self)
 
+            other_laneNode.back_neighbors.add(self)
+            self.back_neighbors.add(other_laneNode)
+
     def link_one_way(self, other_laneNode):
         if self != other_laneNode:
             self.neighbors.add(other_laneNode)
+            other_laneNode.back_neighbors.add(self)
 
     def draw(self):
         style = "Simple, tail_width=0.5, head_width=1, head_length=1"
@@ -141,8 +171,9 @@ class Lane:
         self.end = self.shape[-1]
         self.start = self.shape[0]
 
-        interp = interp1d(x=np.linspace(0, NUM_LANE_NODES, len(self.shape)), y=self.shape, axis=0)
-        self.lane_nodes = [LaneNodes(position) for position in interp(np.arange(0, NUM_LANE_NODES))]
+        self.interp = interp1d(x=np.linspace(0, NUM_LANE_NODES, len(self.shape)), y=self.shape, axis=0)
+        # self.reverse_interp = interp1d(x=self.shape, y=np.linspace(0, NUM_LANE_NODES, len(self.shape)), kind='cubic')
+        self.lane_nodes = [LaneNodes(position) for position in self.interp(np.arange(0, NUM_LANE_NODES))]
 
     def __repr__(self):
         return self.id

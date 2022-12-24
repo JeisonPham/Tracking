@@ -44,6 +44,9 @@ def plot_cluster(traj_lst, cluster_lst):
     plt.show()
 
 
+
+
+
 def create_trajectory_set(dataset):
     direction = {
         "less_than_5": {
@@ -151,13 +154,8 @@ def viz_trajectory_sets(traj_file):
             plt.xlim([0, 255])
             plt.ylim([0, 255])
             for traj in value_dir.values():
-
-
                 plt.plot(traj.mean[:, 0], traj.mean[:, 1])
             plt.show()
-
-
-
 
 
 if __name__ == "__main__":

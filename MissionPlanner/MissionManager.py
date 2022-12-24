@@ -1,10 +1,55 @@
+import matplotlib.patches
+
 from MissionPlanner.NetNodes import Net, LaneNodes
+from PathManager import PathManager
 import numpy as np
 import matplotlib.pyplot as plt
 import json
 from shapely.geometry import Polygon, Point
 from SearchAlgorithms import SearchObject, AStar
 from GridPlanning import LocalPlannerNode
+import cv2
+
+
+def get_grid(point_cloud_range, voxel_size):
+    lower = np.array(point_cloud_range[:(len(point_cloud_range) // 2)])
+    upper = np.array(point_cloud_range[(len(point_cloud_range) // 2):])
+
+    dx = np.array(voxel_size)
+    bx = lower + dx / 2.0
+    nx = ((upper - lower) / dx).astype(int)
+
+    return dx, bx, nx
+
+
+def get_corners(box, lw):
+    l, w = lw
+    simple_box = np.array([
+        [-l / 2., -w / 2.],
+        [l / 2., -w / 2.],
+        [l / 2., w / 2.],
+        [-l / 2., w / 2.],
+    ])
+    return simple_box + np.array(box)
+
+
+class GridTransform:
+    def __init__(self, center):
+        self.dx, self.bx, (self.nx, self.ny) = get_grid([-5, -10,
+                                                         15, 10],
+                                                        [20 / 256, 20 / 256])
+        self.center = center
+
+    def __call__(self, position):
+        pts = position - self.center
+        pts = np.round(
+            (pts - self.bx[:2] + self.dx[:2] / 2.) / self.dx[:2]
+        ).astype(np.int32)
+        return pts
+
+    def reverse(self, position):
+        position = position * self.dx[:2] + self.bx[:2] - self.dx[:2] / 2.
+        return position + self.center
 
 
 class MissionNodeWrapper(SearchObject):
@@ -59,6 +104,11 @@ class MissionManager(object):
 
         setattr(self, f"{node_type}_node", LaneNodes.EXISTS[index])
 
+    def get_node(self, position):
+        dist = np.linalg.norm([x.position - position for x in LaneNodes.EXISTS], axis=1)
+        index = np.argsort(dist)[0]
+        return LaneNodes.EXISTS[index]
+
     def generate_path(self, navigation_method="bfs"):
         if navigation_method == "bfs":
             setattr(self, "path", self._bfs())
@@ -69,12 +119,40 @@ class MissionManager(object):
             path = [x.lane_node for x in path]
             setattr(self, "path", path)
 
-    # def target(self, position):
-    #     point = Point(position)
-    #     if self.current_lane.polygon.contains(point):
-    #         return self.current_lane.end
-    #     else:
-    #         return self.current_lane.start
+    def create_occupancy_grid(self, position, occupied_information):
+        position = np.array(position)
+        nodes = []
+        for junction in self.net.nodes.values():
+            if hasattr(junction, 'polygon'):
+                if any(np.linalg.norm(np.array([*junction.polygon.exterior.xy]).T - position, axis=1) <= 60):
+                    nodes.append(junction.polygon)
+        for lane in self.net.lanes.values():
+            if hasattr(lane, 'polygon'):
+                if any(np.linalg.norm(np.array([*lane.polygon.exterior.xy]).T - position, axis=1) <= 60):
+                    nodes.append(lane.polygon)
+
+        gridTransform = GridTransform(position)
+        occupancy_map = np.zeros((gridTransform.nx, gridTransform.ny))
+
+        for node in nodes:
+            temp_map = np.zeros((gridTransform.nx, gridTransform.ny))
+            pts = np.array([*node.exterior.xy]).T
+            pts = gridTransform(pts)
+            cv2.fillPoly(temp_map, [pts[:, (1, 0)]], color=1.0)
+            cv2.polylines(temp_map, [pts[:, (1, 0)]], color=2.0, thickness=2, isClosed=True)
+
+            for info in occupied_information:
+                p = Point(info['position'])
+                if node.contains(p):
+                    pts = gridTransform(info['position'])
+                    temp_map = cv2.circle(temp_map, pts[::-1], radius=51, color=0.0, thickness=-1)
+
+            occupancy_map = np.clip(occupancy_map + temp_map, 0., 1.)
+
+        plt.imshow(occupancy_map, origin='lower')
+        plt.show()
+
+        return occupancy_map, gridTransform
 
     def plot(self, position, hide_nodes=False):
         for junction in self.net.nodes.values():
@@ -89,59 +167,79 @@ class MissionManager(object):
         plt.xlim([position[0] - 60, position[0] + 60])
         plt.ylim([position[1] - 60, position[1] + 60])
 
-    # def target_list(self):
-    #     targets = []
-    #     for lane in self.path:
-    #         targets.append(lane.polygon.centroid.coords[0])
-    #
-    #     return targets
-    #
-    # def update(self, position):
-    #     point = Point(position)
-    #
-    #     if not self.current_lane.contains(point):
-    #         self.current_lane = self.path.pop(0)
-    #
-    # def _bfs(self):
-    #     queue = [[self.current_lane]]
-    #     visited = set()
-    #     while len(queue) > 0:
-    #         size = len(queue)
-    #         for _ in range(size):
-    #             lanes = queue.pop(0)
-    #             if lanes[-1] in visited:
-    #                 continue
-    #             elif lanes[-1] == self.goal_lane:
-    #                 return lanes
-    #
-    #             visited.add(lanes[-1])
-    #             current_lane = lanes[-1]
-    #             for connection in current_lane.outgoing_connection:
-    #                 temp = lanes.copy()
-    #                 temp.append(connection.to_lane)
-    #                 queue.append(temp)
-    #
-    #     raise Exception
-
 
 if __name__ == "__main__":
-    manager = MissionManager(r"F:\2022-09-12-16-57-35\osm.net.xml",
-                             r"F:\Radar Reseach Project\Tracking\SumoNetVis\polygons.json")
-    fig = plt.figure(figsize=(20, 20))
-    manager.plot([308.93, 580.42], hide_nodes=True)
+    manager = MissionManager(r"E:\2022-09-12-16-57-35\osm.net.xml",
+                             r"E:\Radar Reseach Project\Tracking\SumoNetVis\polygons.json")
+
     manager.set_node([308.93, 580.42])
-    manager.set_node([937.51, 923.72], "goal")
-    manager.generate_path("AStar")
-
-    path = np.array([x.position for x in manager.path])
-    start = LocalPlannerNode(311.05000, 317.61600)
-
-    goal = LocalPlannerNode(317.61600, 324.18200)
-
-    local_path = AStar.generate_path(start, goal)[0]
-    for local in local_path:
-        local.plot(plt.gca())
-    plt.plot(path[:, 0], path[:, 1], 'r-->')
+    manager.set_node([480, 580], "goal")
+    manager.plot([308.93, 580.42], hide_nodes=True)
+    plt.scatter(308.93, 580.42)
     plt.show()
 
-    # plt.show()
+    manager.generate_path("AStar")
+
+    path = [x for x in manager.path]
+
+    pathManager = PathManager(path, AStar.generate_path, MissionNodeWrapper)
+
+    local_path = []
+    next_motion = None
+
+    occupied_info = [{
+        'position': [320.93, 583]
+    }, {
+        'position': [340.93, 582]
+    }
+    ]
+
+    it = pathManager.get_path()
+    index = -1
+    for waypoint_start, waypoint_goal in it:
+        index += 1
+        # fig = plt.figure(figsize=(20, 20))
+        omap, transform = manager.create_occupancy_grid(waypoint_start.position, occupied_info)
+
+        if next_motion is None:
+            next_motion = LocalPlannerNode.motion_calculator(waypoint_start.position, waypoint_goal.position)
+
+        start = LocalPlannerNode(*transform(waypoint_start.position), list(waypoint_start.neighbors), transform, omap,
+                                 next_motion)
+        goal = LocalPlannerNode(*transform(waypoint_goal.position))
+        manager.plot((waypoint_start.position + waypoint_goal.position) / 2., hide_nodes=True)
+        for info in occupied_info:
+            x = info['position'][0]
+            y = info['position'][1]
+
+            patch = matplotlib.patches.Rectangle([x - 1.5, y - 0.5], 3, 1, color='black')
+            plt.gca().add_patch(patch)
+
+        local_path += AStar.generate_path(start, goal)[0]
+        for local in local_path:
+            local.plot(plt.gca(), 'blue')
+
+        path = pathManager.numpy_path()
+        plt.plot(path[:, 0], path[:, 1], 'r-->')
+        plt.savefig(f"Output/{index:05d}.png")
+        plt.clf()
+
+        dist = float('inf')
+        final_position = transform.reverse(local_path[-1].position)
+        for neighbor in waypoint_start.neighbors:
+            if np.linalg.norm(neighbor.position - final_position) < dist:
+                dist = np.linalg.norm(neighbor.position - final_position)
+                final_waypoint = neighbor
+
+        final_waypoint.position = transform.reverse(local_path[-1].position)
+        if final_waypoint != waypoint_goal:
+            pathManager.regenerate_path(final_waypoint)
+        pathManager.start = final_waypoint
+
+        next_motion = local_path[-1].current_move
+
+    # TODO: Test scenario where vehicle must wait before proceeding
+    # TODO: Test left turn with obstruction
+    # TODO: Test Right turn with obstruction
+    # TODO: Integrate with simulator or use another one
+

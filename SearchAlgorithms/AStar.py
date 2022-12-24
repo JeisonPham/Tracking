@@ -2,6 +2,7 @@ import numpy as np
 from SearchAlgorithms import SearchObject
 import matplotlib.pyplot as plt
 import pickle
+from SearchAlgorithms.util import color_gradient
 
 
 class Node:
@@ -49,28 +50,35 @@ def calc_final_path(goal_reach, start_node, closed_set):
 
 
 def visualize_closed_set(closed_set):
-    ax = plt.gca()
-    temp = pickle.dumps(ax)
+    viz_map = closed_set[list(closed_set.keys())[0]].obj.OCCUPIED_MAP.copy()
+
     for node in closed_set.values():
-        node.obj.plot(ax)
+        x, y = node.obj.position
+        viz_map[x, y] = 0
+    plt.imshow(viz_map, origin='lower')
     plt.show()
-    plt.sca(pickle.loads(temp))
 
 
 def visualize_current_path(current, start, closed_set):
-    ax = plt.gca()
-    temp = pickle.dumps(ax)
+    viz_map = closed_set[0].obj.OCCUPIED_MAP.copy()
+
     while current != start:
-        current.obj.plot(ax)
+        x, y = current.obj.position
+        viz_map[x, y] = 0
         current = closed_set[current.prev_idx]
+    x, y = current.obj.position
+    viz_map[x, y] = 0
+    plt.imshow(viz_map, origin='lower')
     plt.show()
-    plt.sca(pickle.loads(temp))
 
 
 def generate_path(start, goal, *args, **kwargs):
-    h_search_threshold = 10
+    h_search_threshold = float('inf')
     start_node = Node(start, prev_idx=-1)
+    # start_node.obj.plot(plt.gca(), 'black')
     goal_node = Node(goal, prev_idx=-1)
+    # goal_node.obj.plot(plt.gca(), 'red')
+
 
     farthest_node_index_reached = None
 
@@ -94,6 +102,7 @@ def generate_path(start, goal, *args, **kwargs):
             goal_node = current
             break
         closed_set[current.id] = current
+        # visualize_closed_set(open_set)
         if current.h == 0:
             farthest_node_index_reached = current.id
 
@@ -124,7 +133,9 @@ def generate_path(start, goal, *args, **kwargs):
 
     goal_reached = goal_node
     if goal_node.prev_idx == -1 and farthest_node_index_reached is not None:
-        goal_reached = closed_set[farthest_node_index_reached]
+        nodes = list(closed_set.values())
+        nodes = sorted(nodes, key=lambda x: x.calc_cost(goal_node))
+        goal_reached = nodes[0]
 
     path, deviation_dist = calc_final_path(goal_reached, start_node, closed_set)
 
