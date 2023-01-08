@@ -132,14 +132,13 @@ class MissionManager(object):
                     nodes.append(lane.polygon)
 
         gridTransform = GridTransform(position)
-        occupancy_map = np.zeros((gridTransform.nx, gridTransform.ny))
+        occupancy_map = np.ones((gridTransform.nx, gridTransform.ny)) * 2
 
         for node in nodes:
-            temp_map = np.zeros((gridTransform.nx, gridTransform.ny))
+            temp_map = np.ones((gridTransform.nx, gridTransform.ny)) * 2
             pts = np.array([*node.exterior.xy]).T
             pts = gridTransform(pts)
             cv2.fillPoly(temp_map, [pts[:, (1, 0)]], color=1.0)
-            cv2.polylines(temp_map, [pts[:, (1, 0)]], color=2.0, thickness=2, isClosed=True)
 
             for info in occupied_information:
                 p = Point(info['position'])
@@ -147,10 +146,11 @@ class MissionManager(object):
                     pts = gridTransform(info['position'])
                     temp_map = cv2.circle(temp_map, pts[::-1], radius=51, color=0.0, thickness=-1)
 
-            occupancy_map = np.clip(occupancy_map + temp_map, 0., 1.)
+            occupancy_map[temp_map == 1] = 1.0
+            occupancy_map[temp_map == 0] = 0.0
 
-        plt.imshow(occupancy_map, origin='lower')
-        plt.show()
+        # plt.imshow(occupancy_map, origin='lower')
+        # plt.show()
 
         return occupancy_map, gridTransform
 
@@ -172,7 +172,7 @@ if __name__ == "__main__":
     manager = MissionManager(r"E:\2022-09-12-16-57-35\osm.net.xml",
                              r"E:\Radar Reseach Project\Tracking\SumoNetVis\polygons.json")
 
-    manager.set_node([308.93, 580.42])
+    manager.set_node([400., 585.42])
     manager.set_node([480, 580], "goal")
     manager.plot([308.93, 580.42], hide_nodes=True)
     plt.scatter(308.93, 580.42)

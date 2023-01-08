@@ -77,6 +77,7 @@ motion_dict_dx_dy_cost[MotionModel.STOP] = [0, 0]
 class LocalPlannerNode(SearchObject):
     OCCUPIED_MAP = None
     SCALE = 256 / 20
+    INDEX = 0
 
     @staticmethod
     def motion_calculator(start, goal):
@@ -122,8 +123,11 @@ class LocalPlannerNode(SearchObject):
 
         viz_map = np.zeros(LocalPlannerNode.OCCUPIED_MAP.shape)
         cv2.fillPoly(viz_map, [box[:, (1, 0)]], color=1.0)
-        # plt.imshow(np.clip(LocalPlannerNode.OCCUPIED_MAP - viz_map, 0, 1), origin='lower')
-        # plt.show()
+        # plt.imshow(np.clip(LocalPlannerNode.OCCUPIED_MAP - viz_map, 0, 2), origin='lower')
+        # plt.title(not np.any(LocalPlannerNode.OCCUPIED_MAP[viz_map == 1.0] == 0.0))
+        # plt.savefig(f"{LocalPlannerNode.INDEX}.png")
+        # plt.clf()
+        LocalPlannerNode.INDEX += 1
         if np.any(LocalPlannerNode.OCCUPIED_MAP[viz_map == 1.0] == 0.0):
             return False
         return True
